@@ -46,13 +46,14 @@ def outlier_process(data):
     #data = data[(data['family_size']==1) & (data['child_num']==2)].index
     return data
 
+'''
 # 이진 범주형 변수 처리 (라벨 인코딩 있으면 요거는 필요 없음)
 def binary_cate_process(data):
     data['gender'] = data['gender'].replace(['F', 'M'], [0, 1])
     data['car'] = data['car'].replace(['N', 'Y'], [0, 1])
     data['reality'] = data['reality'].replace(['N', 'Y'], [0, 1])
     return data
-
+'''
 
 # 수치형 변수 처리
 def numeric_process(data):
@@ -63,6 +64,9 @@ def numeric_process(data):
     # 고용일 연단위로 전처리
     data.loc[data['DAYS_EMPLOYED'] >= 0, 'DAYS_EMPLOYED'] = 0
     data['DAYS_EMPLOYED'] = data['DAYS_EMPLOYED'].apply(day_to_year)
+
+    # 카드 생성 전처리
+    # data['begin_month'] = data['begin_month'].apply(minus) # (요거 넣어주면 오히려 떨어짐)
 
     return data
 
@@ -90,7 +94,34 @@ def label_encoding(data):
 
     return data
 
+# 파생변수 함수
+def add_numeric_process(data):
+    data['birth_work_minus'] = data['DAYS_BIRTH'] - data['DAYS_EMPLOYED']
+    data['birth_work_ratio'] = data['DAYS_EMPLOYED'] / data['DAYS_BIRTH']
 
+    # 가족, 아이 대비 소득
+
+    data['income_family_ratio'] = data['income_total'] / data['child_num']
+    data['income_child_ratio'] = data['income_total'] / data['family_size']
+
+    # 가족, 아이 (별로 효과 좋지 않음) -> 다음을 필요 있음
+    data['family_child_minus'] = data['family_size'] - data['child_num']
+    data['family_child_ratio'] = data['family_size'] / data['child_num']
+
+    # 카드 생성과 나이, 일시작
+    data['begin_age_ratio'] = data['begin_month'] / data['DAYS_BIRTH']
+    data['begin_work_ratio'] = data['begin_month'] / data['DAYS_EMPLOYED']
+
+    # 재산 가중치
+    data['money_property'] = data['car'] + data['reality']
+    data['product_property'] = data['work_phone'] + data['phone'] + data['email']
+    data['total_property'] = data['car'] + data['reality'] + data['car'] + data['work_phone'] + data['phone'] + data[
+        'email']
+
+    return data
+
+
+'''
 # 함수 실행 함수
 def function_run(data):
     data = outlier_process(data)
@@ -99,7 +130,7 @@ def function_run(data):
     data = not_use_column(data)
     data = label_encoding(data)
     return data
-
+'''
 
 train = outlier_process(train)
 
@@ -118,6 +149,10 @@ test = not_use_column(test)
 train = label_encoding(train)
 test = label_encoding(test)
 
+# 파생변수 (순서 중요)
+train = add_numeric_process(train)
+test = add_numeric_process(test)
+
 
 train_x = train.drop('credit', axis=1)
 train_y = train[['credit']]
@@ -125,15 +160,24 @@ test_x = test
 
 X_train, X_val, y_train, y_val = train_test_split(train_x, train_y,
                                                   stratify=train_y, test_size=0.25, random_state=42)
+cat = CatBoostClassifier()
+cat.fit(X_train, y_train)
+y_pred = cat.predict_proba(X_val)
+
+print(f"log_loss: {log_loss(y_val['credit'], y_pred)}")
+# 값이 작을수록 잘 예측한 것임
+
+'''
 clf = RandomForestClassifier(random_state=42)
 clf.fit(X_train, y_train)
 y_pred = clf.predict_proba(X_val)
 
 print(f"log_loss: {log_loss(y_val['credit'], y_pred)}")
-# 값이 작을수록 잘 예측한 것임
+'''
 
 ###다음에 할 거###
 # 1. 이상치 제거 함수 만들기
-# 2. occuyp_process 함수 보충하기
+# 해결 2. occuyp_process 함수 보충하기
 # 해결 3. 필요없는 열 제거 함수 만들기 -> data.drop('FLAG_MOBIL', axis=1, inplace=True)
-# 4. occupy_type 결측값 예측하는 함수 만들기
+# 4. 파생변수 생성 및 다듬기
+# 5. occupy_type 결측값 예측하는 함수 만들기
