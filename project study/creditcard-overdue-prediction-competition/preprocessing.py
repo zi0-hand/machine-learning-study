@@ -42,8 +42,9 @@ def outlier_process(data):
     # 자녀수가 7 이상인 데이터는 이상치라 판단
     data = data[data['child_num'] < 7]
 
-    # 가족수가 1이면서 아이가 2인 데이터는 이상치라 판단
-    #data = data[(data['family_size']==1) & (data['child_num']==2)].index
+    # 자녀수가 가족수보다 같거나 큰 경우 제외 (근데 이렇게 하면 오히려 성능 떨어짐)
+    #data = data[data['child_num'] < data['family_size']]
+
     return data
 
 '''
@@ -99,14 +100,14 @@ def add_numeric_process(data):
     data['birth_work_minus'] = data['DAYS_BIRTH'] - data['DAYS_EMPLOYED']
     data['birth_work_ratio'] = data['DAYS_EMPLOYED'] / data['DAYS_BIRTH']
 
-    # 가족, 아이 대비 소득
-
-    data['income_family_ratio'] = data['income_total'] / data['child_num']
-    data['income_child_ratio'] = data['income_total'] / data['family_size']
-
-    # 가족, 아이 (별로 효과 좋지 않음) -> 다음을 필요 있음
+    # 가족, 아이 (별로 효과 좋지 않음) -> 다듬을 필요 있음
     data['family_child_minus'] = data['family_size'] - data['child_num']
     data['family_child_ratio'] = data['family_size'] / data['child_num']
+
+    # 가족, 아이 대비 소득
+    data['income_family_ratio'] = data['income_total'] / data['family_size']
+    data['income_child_ratio'] = data['income_total'] / data['child_num']
+    data['imcome_famchi_ratio'] = data['income_total'] / data['family_child_minus'] # (성능 좋음)
 
     # 카드 생성과 나이, 일시작
     data['begin_age_ratio'] = data['begin_month'] / data['DAYS_BIRTH']
@@ -181,3 +182,8 @@ print(f"log_loss: {log_loss(y_val['credit'], y_pred)}")
 # 해결 3. 필요없는 열 제거 함수 만들기 -> data.drop('FLAG_MOBIL', axis=1, inplace=True)
 # 4. 파생변수 생성 및 다듬기
 # 5. occupy_type 결측값 예측하는 함수 만들기
+# 6. inf 해결하기 (분모에 뭘 둬야할지 다시 생각)
+
+###스터디 의견공유###
+# 1. 왜도 로그 변환
+# 2. 식별자 생성
