@@ -67,7 +67,7 @@ def numeric_process(data):
     data['DAYS_EMPLOYED'] = data['DAYS_EMPLOYED'].apply(day_to_year)
 
     # 카드 생성 전처리
-    # data['begin_month'] = data['begin_month'].apply(minus) # (요거 넣어주면 오히려 떨어짐)
+    data['begin_month'] = data['begin_month'].apply(minus) # (요거 넣어주면 오히려 떨어짐)
 
     return data
 
@@ -85,33 +85,43 @@ def not_use_column(data):
     return data
 
 # 라벨 인코딩
-def label_encoding(data):
+def label_encoding(data1, data2):
 
     features = ['gender','car','reality','income_type','edu_type','family_type','house_type','occyp_type']
     for feature in features:
         le = LabelEncoder()
-        le = le.fit(data[feature])
-        data[feature] = le.transform(data[feature])
+        data1 = le.fit_transform(data1[feature])
+        data2 = le.transform(data2[feature])
 
+    return data1, data2
+
+
+# inf를 없애기 위한 함수 (다른 좋은 방안 있으면 디벨롭 필요)
+def add_1(data):
+    features = ['child_num', 'DAYS_EMPLOYED', 'family_size', 'begin_month']
+    for feature in features:
+        data[feature] = data[feature] + 1
     return data
+
 
 # 파생변수 함수
 def add_numeric_process(data):
-    data['birth_work_minus'] = data['DAYS_BIRTH'] - data['DAYS_EMPLOYED']
+
+    # 나이, 일 비교
     data['birth_work_ratio'] = data['DAYS_EMPLOYED'] / data['DAYS_BIRTH']
 
+    # 소득과 나이, 일 비교
+    data['income_age_ratio'] = data['income_total'] / data['DAYS_BIRTH']
+    data['income_em_ratio'] = data['income_total'] / data['DAYS_EMPLOYED']
+
     # 가족, 아이 (별로 효과 좋지 않음) -> 다듬을 필요 있음
-    data['family_child_minus'] = data['family_size'] - data['child_num']
     data['family_child_ratio'] = data['family_size'] / data['child_num']
 
     # 가족, 아이 대비 소득
-    data['income_family_ratio'] = data['income_total'] / data['family_size']
     data['income_child_ratio'] = data['income_total'] / data['child_num']
-    data['imcome_famchi_ratio'] = data['income_total'] / data['family_child_minus'] # (성능 좋음)
 
     # 카드 생성과 나이, 일시작
-    data['begin_age_ratio'] = data['begin_month'] / data['DAYS_BIRTH']
-    data['begin_work_ratio'] = data['begin_month'] / data['DAYS_EMPLOYED']
+    data['last1'] = data['DAYS_BIRTH'] / (data['begin_month']//12)
 
     # 재산 가중치
     data['money_property'] = data['car'] + data['reality']
@@ -147,13 +157,15 @@ test = occuyp_process(test)
 train = not_use_column(train)
 test = not_use_column(test)
 
-train = label_encoding(train)
-test = label_encoding(test)
+train, test = label_encoding(train, test)
+
+# inf 제거 함수
+train = add_1(train)
+test = add_1(test)
 
 # 파생변수 (순서 중요)
 train = add_numeric_process(train)
 test = add_numeric_process(test)
-
 
 train_x = train.drop('credit', axis=1)
 train_y = train[['credit']]
@@ -180,9 +192,10 @@ print(f"log_loss: {log_loss(y_val['credit'], y_pred)}")
 # 1. 이상치 제거 함수 만들기
 # 해결 2. occuyp_process 함수 보충하기
 # 해결 3. 필요없는 열 제거 함수 만들기 -> data.drop('FLAG_MOBIL', axis=1, inplace=True)
-# 4. 파생변수 생성 및 다듬기
+# 보충 4. 파생변수 생성 및 다듬기
 # 5. occupy_type 결측값 예측하는 함수 만들기
-# 6. inf 해결하기 (분모에 뭘 둬야할지 다시 생각)
+# 보충 6. inf 해결하기 (분모에 뭘 둬야할지 다시 생각) **
+# 해결 7. fit_transfrom 수정하기 ***
 
 ###스터디 의견공유###
 # 1. 왜도 로그 변환
